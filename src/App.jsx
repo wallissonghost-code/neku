@@ -1,281 +1,184 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const START_BALANCE = 100000;
-const BETS = [100, 250, 500, 1000, 2500, 5000];
-const games = [
-  { id: 'tiger', name: 'Neku Fortune', icon: '🐯', tag: 'MAIS JOGADO', desc: '5 rolos, Wild, Scatter e giros grátis.' },
-  { id: 'dragon', name: 'Dragon Coins', icon: '🐉', tag: 'BÔNUS 10X', desc: 'Junte moedas e acenda o dragão.' },
-  { id: 'jungle', name: 'Jungle Link', icon: '🦜', tag: 'CLUSTER', desc: 'Grupos de símbolos pagam em cascata.' },
-  { id: 'vault', name: 'Diamond Vault', icon: '💎', tag: 'ESCOLHA', desc: 'Encontre 3 chaves e abra o cofre.' },
-  { id: 'crash', name: 'Neku Crash', icon: '🚀', tag: 'AO VIVO', desc: 'Saque antes do multiplicador explodir.' },
+const MONEY_OPTIONS = [1000, 2500, 5000, 10000, 25000, 50000];
+const BETS = [10, 25, 50, 100, 250, 500];
+const SLOT_GAMES = [
+  { id:'fortune', name:'Neku Fortune', tag:'WILD & SCATTER', accent:'gold', symbols:['tiger','crown','lantern','coin','jade','ace'] },
+  { id:'dragon', name:'Dragon Empire', tag:'DRAGON BONUS', accent:'red', symbols:['dragon','orb','temple','coin','fan','king'] },
+  { id:'royal', name:'Royal Vault', tag:'LOCK & WIN', accent:'blue', symbols:['diamond','crown','key','vault','bar','seven'] },
+  { id:'jungle', name:'Jungle Riches', tag:'CASCADING REELS', accent:'green', symbols:['mask','ruby','leaf','totem','sun','queen'] },
 ];
 
-const configs = {
-  tiger: { symbols: ['🐯','👑','🧧','🏮','🍊','A','K'], cols: 5, rows: 3 },
-  dragon: { symbols: ['🐉','🪙','🔥','🏯','🥁','A','K'], cols: 5, rows: 3 },
-  jungle: { symbols: ['🦜','🐒','🦁','🍌','🌺','💎'], cols: 6, rows: 4 },
-  vault: { symbols: ['💎','🔑','👑','🪙','7','⭐'], cols: 5, rows: 3 },
-};
+const fmt = (v) => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const rng = (arr) => arr[Math.floor(Math.random()*arr.length)];
+const gridFor = (game) => Array.from({length:15},()=>rng(game.symbols));
 
-const randomItem = (items) => items[Math.floor(Math.random() * items.length)];
-const fmt = (value) => Number(value).toLocaleString('pt-BR');
-const makeGrid = (id) => {
-  const c = configs[id];
-  return Array.from({ length: c.cols * c.rows }, () => randomItem(c.symbols));
-};
+export default function App(){
+  const [screen,setScreen]=useState('lobby');
+  const [balance,setBalance]=useState(10000);
+  const [walletOpen,setWalletOpen]=useState(false);
+  const [bet,setBet]=useState(50);
+  const [grid,setGrid]=useState(gridFor(SLOT_GAMES[0]));
+  const [spinning,setSpinning]=useState(false);
+  const [bonus,setBonus]=useState(0);
+  const [freeSpins,setFreeSpins]=useState(0);
+  const [win,setWin]=useState(null);
+  const [history,setHistory]=useState([]);
 
-export default function App() {
-  const [screen, setScreen] = useState('lobby');
-  const [balance, setBalance] = useState(START_BALANCE);
-  const [bet, setBet] = useState(500);
-  const [grid, setGrid] = useState(makeGrid('tiger'));
-  const [spinning, setSpinning] = useState(false);
-  const [bonus, setBonus] = useState({ tiger: 0, dragon: 0, jungle: 0, vault: 0 });
-  const [freeSpins, setFreeSpins] = useState(0);
-  const [win, setWin] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [vaultMode, setVaultMode] = useState(false);
-  const [vaultPicks, setVaultPicks] = useState([]);
-  const [crashState, setCrashState] = useState('ready');
-  const [multiplier, setMultiplier] = useState(1);
-  const [crashPath, setCrashPath] = useState([{x:2,y:95}]);
-  const [cashout, setCashout] = useState(null);
-  const crashTarget = useRef(2);
-  const crashRaf = useRef(null);
-  const crashStart = useRef(0);
-  const cashed = useRef(false);
-  const multiplierRef = useRef(1);
+  const [crashPhase,setCrashPhase]=useState('waiting');
+  const [countdown,setCountdown]=useState(5);
+  const [multiplier,setMultiplier]=useState(1);
+  const [crashPath,setCrashPath]=useState([{x:2,y:95}]);
+  const [queuedBet,setQueuedBet]=useState(false);
+  const [activeBet,setActiveBet]=useState(0);
+  const [cashed,setCashed]=useState(false);
+  const [cashResult,setCashResult]=useState(null);
+  const [recent,setRecent]=useState([1.42,2.18,7.86,1.09,3.41,12.22]);
+  const crashTarget=useRef(2);
+  const phaseTimer=useRef(null);
+  const raf=useRef(null);
+  const startedAt=useRef(0);
+  const multRef=useRef(1);
 
-  const currentGame = games.find((g) => g.id === screen);
-  const totalPlayed = useMemo(() => history.reduce((sum, item) => sum + item.bet, 0), [history]);
+  const currentGame=SLOT_GAMES.find(g=>g.id===screen) || SLOT_GAMES[0];
+  const totalWon=useMemo(()=>history.reduce((s,h)=>s+h.payout,0),[history]);
 
-  useEffect(() => () => cancelAnimationFrame(crashRaf.current), []);
+  useEffect(()=>{
+    if(screen==='crash' && crashPhase==='waiting' && !phaseTimer.current) startWaitingCycle();
+    return ()=>{};
+  },[screen]);
 
-  const openGame = (id) => {
-    setScreen(id);
-    setWin(null);
-    setCashout(null);
-    if (configs[id]) setGrid(makeGrid(id));
+  useEffect(()=>()=>{clearInterval(phaseTimer.current);cancelAnimationFrame(raf.current)},[]);
+
+  const addHistory=(game,wager,payout,detail)=>setHistory(h=>[{id:crypto.randomUUID(),game,wager,payout,detail,time:new Date().toLocaleTimeString('pt-BR')},...h].slice(0,30));
+  const addFunds=(value)=>{setBalance(value);setWalletOpen(false)};
+
+  const openSlot=(id)=>{const g=SLOT_GAMES.find(x=>x.id===id);setGrid(gridFor(g));setBonus(0);setFreeSpins(0);setWin(null);setScreen(id)};
+
+  const evaluateSlot=(g,result,wager)=>{
+    const counts=result.reduce((a,s)=>({...a,[s]:(a[s]||0)+1}),{});
+    const best=Math.max(...Object.values(counts));
+    const scatters=(counts.lantern||0)+(counts.key||0)+(counts.orb||0)+(counts.totem||0);
+    let payout=0;
+    if(best>=6) payout=wager*10;
+    else if(best>=5) payout=wager*6;
+    else if(best>=4) payout=wager*3;
+    else if(best>=3) payout=wager*1.5;
+    let nextBonus=Math.min(4,bonus+Math.min(2,scatters));
+    let detail=best>=3?`${best} símbolos conectados`:'Sem linha premiada';
+    if(scatters>=3){setFreeSpins(v=>v+5);detail='BÔNUS: 5 giros grátis';nextBonus=Math.min(4,nextBonus+1)}
+    if(nextBonus>=4){payout+=wager*10;nextBonus=0;detail='MEDIDOR COMPLETO: bônus 10x'}
+    setBonus(nextBonus);
+    const final=Math.floor(payout);
+    if(final>0){setBalance(v=>v+final);setWin({amount:final,title:final>=wager*10?'MEGA WIN':final>=wager*5?'BIG WIN':'VOCÊ GANHOU',detail})}
+    addHistory(g.name,wager,final,detail);
   };
 
-  const addHistory = (game, wager, payout, detail) => {
-    setHistory((items) => [{ id: crypto.randomUUID(), game, bet: wager, payout, detail, time: new Date().toLocaleTimeString('pt-BR') }, ...items].slice(0, 30));
+  const spin=()=>{
+    if(spinning)return;
+    const wager=freeSpins>0?0:bet;
+    if(wager>balance){setWin({amount:0,title:'SALDO INSUFICIENTE',detail:'Adicione saldo de brincadeira.'});return}
+    setWin(null);setSpinning(true);
+    if(freeSpins>0)setFreeSpins(v=>v-1);else setBalance(v=>v-bet);
+    let ticks=0;
+    const interval=setInterval(()=>{
+      ticks++;setGrid(gridFor(currentGame));
+      if(ticks>=14){clearInterval(interval);const final=gridFor(currentGame);setGrid(final);setSpinning(false);evaluateSlot(currentGame,final,wager||bet)}
+    },65);
   };
 
-  const showWin = (title, amount, subtitle, level = 'win') => {
-    setWin({ title, amount, subtitle, level });
+  const startWaitingCycle=()=>{
+    clearInterval(phaseTimer.current);cancelAnimationFrame(raf.current);
+    setCrashPhase('waiting');setCountdown(5);setMultiplier(1);setCrashPath([{x:2,y:95}]);setCashed(false);setCashResult(null);
+    let left=5;
+    phaseTimer.current=setInterval(()=>{
+      left-=1;setCountdown(left);
+      if(left<=0){clearInterval(phaseTimer.current);phaseTimer.current=null;launchCrash()}
+    },1000);
   };
 
-  const evaluateSlot = (id, result) => {
-    const wager = freeSpins > 0 ? 0 : bet;
-    const counts = result.reduce((acc, symbol) => ({ ...acc, [symbol]: (acc[symbol] || 0) + 1 }), {});
-    let payout = 0;
-    let detail = 'Sem combinação';
-    let nextBonus = bonus[id] || 0;
-
-    if (id === 'tiger') {
-      const scatters = counts['🏮'] || 0;
-      const tigers = counts['🐯'] || 0;
-      const best = Math.max(...Object.values(counts));
-      payout = bet * (tigers >= 5 ? 12 : best >= 6 ? 6 : best >= 4 ? 3 : best >= 3 ? 1.5 : 0);
-      if (scatters >= 3) {
-        setFreeSpins((v) => v + 5);
-        nextBonus = Math.min(5, nextBonus + 2);
-        detail = '3 lanternas: 5 giros grátis';
-      } else if (scatters) {
-        nextBonus = Math.min(5, nextBonus + scatters);
-        detail = `${scatters} lanterna(s) no medidor`;
-      }
-      if (nextBonus >= 5) {
-        payout += bet * 10;
-        nextBonus = 0;
-        detail = 'Medidor completo: bônus 10x';
-      }
-    }
-
-    if (id === 'dragon') {
-      const coins = counts['🪙'] || 0;
-      const dragons = counts['🐉'] || 0;
-      payout = bet * (dragons >= 4 ? 8 : coins >= 5 ? 4 : coins >= 3 ? 2 : 0);
-      nextBonus = Math.min(6, nextBonus + Math.min(coins, 3));
-      detail = coins ? `${coins} moedas energizaram o dragão` : 'O dragão não acendeu';
-      if (nextBonus >= 6) {
-        payout += bet * 10;
-        nextBonus = 0;
-        detail = 'Dragão completo: prêmio 10x';
-      }
-    }
-
-    if (id === 'jungle') {
-      const best = Math.max(...Object.values(counts));
-      payout = bet * (best >= 10 ? 15 : best >= 8 ? 8 : best >= 6 ? 4 : best >= 4 ? 1.5 : 0);
-      nextBonus = Math.min(4, nextBonus + (best >= 6 ? 1 : 0));
-      detail = best >= 4 ? `Cluster de ${best} símbolos` : 'Nenhum cluster grande';
-      if (nextBonus >= 4) {
-        payout += bet * 10;
-        nextBonus = 0;
-        detail = 'Cascata completa: prêmio 10x';
-      }
-    }
-
-    if (id === 'vault') {
-      const keys = counts['🔑'] || 0;
-      const diamonds = counts['💎'] || 0;
-      payout = bet * (diamonds >= 4 ? 7 : diamonds >= 3 ? 3 : 0);
-      nextBonus = Math.min(3, nextBonus + Math.min(keys, 2));
-      detail = keys ? `${keys} chave(s) encontrada(s)` : 'Nenhuma chave';
-      if (nextBonus >= 3) {
-        nextBonus = 0;
-        setVaultMode(true);
-        setVaultPicks([]);
-        detail = 'Cofre liberado';
-      }
-    }
-
-    setBonus((state) => ({ ...state, [id]: nextBonus }));
-    const final = Math.floor(payout);
-    if (final > 0) {
-      setBalance((value) => value + final);
-      const level = final >= bet * 10 ? 'mega' : final >= bet * 5 ? 'big' : 'win';
-      showWin(level === 'mega' ? 'MEGA WIN!' : level === 'big' ? 'BIG WIN!' : 'VOCÊ GANHOU!', final, detail, level);
-    }
-    addHistory(currentGame?.name || id, wager, final, detail);
+  const launchCrash=()=>{
+    const data=new Uint32Array(1);crypto.getRandomValues(data);const r=data[0]/4294967296;
+    crashTarget.current=Math.min(30,Math.max(1.05,Number((0.99/Math.max(.03,1-r)).toFixed(2))));
+    setCrashPhase('flying');startedAt.current=performance.now();multRef.current=1;
+    if(queuedBet){setQueuedBet(false);setActiveBet(bet);setBalance(v=>v-bet)}else setActiveBet(0);
+    raf.current=requestAnimationFrame(animateCrash);
   };
 
-  const spin = () => {
-    if (spinning || vaultMode) return;
-    if (freeSpins <= 0 && balance < bet) return showWin('SALDO INSUFICIENTE', 0, 'Reduza a aposta ou reinicie a demonstração.', 'lose');
-    setWin(null);
-    setSpinning(true);
-    if (freeSpins > 0) setFreeSpins((v) => v - 1);
-    else setBalance((value) => value - bet);
-
-    let ticks = 0;
-    const id = setInterval(() => {
-      ticks += 1;
-      setGrid(makeGrid(screen));
-      if (ticks >= 10) {
-        clearInterval(id);
-        const finalGrid = makeGrid(screen);
-        setGrid(finalGrid);
-        setSpinning(false);
-        evaluateSlot(screen, finalGrid);
-      }
-    }, 75);
+  const animateCrash=(now)=>{
+    const sec=(now-startedAt.current)/1000;const m=Number((1+Math.pow(sec*.73,1.6)).toFixed(2));
+    if(m>=crashTarget.current){finishCrash();return}
+    multRef.current=m;setMultiplier(m);
+    const x=Math.min(96,3+sec*8.6);const y=Math.max(8,95-Math.log(m)*31);
+    setCrashPath(p=>[...p.slice(-120),{x,y}]);raf.current=requestAnimationFrame(animateCrash);
   };
 
-  const pickVault = (index) => {
-    if (!vaultMode || vaultPicks.includes(index)) return;
-    const multipliers = [2, 3, 5, 8, 10, 15];
-    const mult = randomItem(multipliers);
-    const picks = [...vaultPicks, index];
-    setVaultPicks(picks);
-    const prize = bet * mult;
-    setBalance((v) => v + prize);
-    showWin('COFRE ABERTO!', prize, `Você encontrou um prêmio de ${mult}x.`, mult >= 10 ? 'mega' : 'big');
-    addHistory('Diamond Vault Bônus', 0, prize, `Escolha ${mult}x`);
-    setTimeout(() => setVaultMode(false), 1200);
+  const finishCrash=()=>{
+    cancelAnimationFrame(raf.current);multRef.current=crashTarget.current;setMultiplier(crashTarget.current);setCrashPhase('crashed');setRecent(r=>[crashTarget.current,...r].slice(0,10));
+    if(activeBet>0&&!cashed)addHistory('Neku Crash',activeBet,0,`Crash ${crashTarget.current.toFixed(2)}x`);
+    setTimeout(()=>startWaitingCycle(),1800);
   };
 
-  const generateCrash = () => {
-    const data = new Uint32Array(1);
-    crypto.getRandomValues(data);
-    const r = data[0] / 4294967296;
-    return Math.min(30, Math.max(1.05, Number((0.99 / Math.max(.03, 1-r)).toFixed(2))));
+  const queueCrashBet=()=>{
+    if(crashPhase!=='waiting'||queuedBet)return;
+    if(balance<bet){setWin({amount:0,title:'SALDO INSUFICIENTE',detail:'Escolha um saldo maior no painel.'});return}
+    setQueuedBet(true);
   };
 
-  const finishCrash = () => {
-    cancelAnimationFrame(crashRaf.current);
-    setCrashState('crashed');
-    setMultiplier(crashTarget.current);
-    if (!cashed.current) addHistory('Neku Crash', bet, 0, `Crash ${crashTarget.current.toFixed(2)}x`);
+  const cashOut=()=>{
+    if(crashPhase!=='flying'||!activeBet||cashed)return;
+    const payout=Math.floor(activeBet*multRef.current);setCashed(true);setCashResult({mult:multRef.current,payout});setBalance(v=>v+payout);addHistory('Neku Crash',activeBet,payout,`Saque ${multRef.current.toFixed(2)}x`);
   };
 
-  const animateCrash = (now) => {
-    const seconds = (now - crashStart.current) / 1000;
-    const value = Number((1 + Math.pow(seconds * .72, 1.58)).toFixed(2));
-    if (value >= crashTarget.current) return finishCrash();
-    multiplierRef.current = value;
-    setMultiplier(value);
-    const x = Math.min(95, 3 + seconds * 8.4);
-    const y = Math.max(8, 95 - Math.log(value) * 30);
-    setCrashPath((points) => [...points.slice(-120), {x,y}]);
-    crashRaf.current = requestAnimationFrame(animateCrash);
-  };
+  const d=crashPath.map((p,i)=>`${i?'L':'M'} ${p.x} ${p.y}`).join(' ');const lp=crashPath.at(-1)||{x:2,y:95};
 
-  const startCrash = () => {
-    if (crashState === 'flying' || balance < bet) return;
-    setBalance((v) => v - bet);
-    setCashout(null);
-    setWin(null);
-    cashed.current = false;
-    crashTarget.current = generateCrash();
-    multiplierRef.current = 1;
-    setMultiplier(1);
-    setCrashPath([{x:2,y:95}]);
-    setCrashState('flying');
-    crashStart.current = performance.now();
-    crashRaf.current = requestAnimationFrame(animateCrash);
-  };
+  return <div className="neku-v4">
+    <header className="v4-header">
+      <button className="v4-logo" onClick={()=>setScreen('lobby')}><span className="logo-mark">N</span><div><b>NEKU</b><small>PLAY CLUB</small></div></button>
+      <nav><button onClick={()=>setScreen('lobby')}>Lobby</button><button onClick={()=>setScreen('crash')}>Crash</button><button onClick={()=>setScreen('history')}>Histórico</button></nav>
+      <button className="money-pill" onClick={()=>setWalletOpen(true)}><small>SALDO TESTE</small><strong>{fmt(balance)}</strong><span>+</span></button>
+    </header>
 
-  const cashOutCrash = () => {
-    if (crashState !== 'flying' || cashed.current) return;
-    cashed.current = true;
-    const mult = multiplierRef.current;
-    const payout = Math.floor(bet * mult);
-    setBalance((v) => v + payout);
-    setCashout({ mult, payout });
-    showWin('VOCÊ SACOU!', payout, `Retirada realizada em ${mult.toFixed(2)}x.`, mult >= 5 ? 'mega' : 'big');
-    addHistory('Neku Crash', bet, payout, `Saque ${mult.toFixed(2)}x`);
-  };
+    {screen==='lobby'&&<main className="v4-main">
+      <section className="v4-hero"><div><span>NEKU PREMIUM EXPERIENCE</span><h1>Jogos com visual de cassino e saldo de brincadeira.</h1><p>Slots animados, bônus progressivos e Crash em rodadas contínuas.</p><button onClick={()=>openSlot('fortune')}>Jogar agora</button></div><div className="hero-emblem"><i></i><b>NEKU</b><small>ROYAL SERIES</small></div></section>
+      <div className="v4-title"><div><small>CATÁLOGO</small><h2>Jogos em destaque</h2></div><button onClick={()=>setWalletOpen(true)}>Adicionar saldo</button></div>
+      <section className="v4-grid">
+        {SLOT_GAMES.map(g=><button className={`v4-card ${g.accent}`} key={g.id} onClick={()=>openSlot(g.id)}><span>{g.tag}</span><div className={`cover-art art-${g.id}`}><i></i><b>{g.name}</b></div><footer><strong>{g.name}</strong><small>Jogar agora</small></footer></button>)}
+        <button className="v4-card crash-cover" onClick={()=>setScreen('crash')}><span>RODADAS AO VIVO</span><div className="cover-art art-crash"><i></i><b>NEKU CRASH</b></div><footer><strong>Neku Crash</strong><small>Aguardar próxima rodada</small></footer></button>
+      </section>
+      <section className="v4-stats"><div><b>{history.length}</b><small>rodadas</small></div><div><b>{fmt(totalWon)}</b><small>ganhos demo</small></div><div><b>5</b><small>jogos ativos</small></div></section>
+    </main>}
 
-  const crashD = crashPath.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ');
-  const lastCrashPoint = crashPath.at(-1) || {x:2,y:95};
+    {SLOT_GAMES.some(g=>g.id===screen)&&<main className={`slot-page ${currentGame.accent}`}>
+      <div className="game-head"><button onClick={()=>setScreen('lobby')}>← Lobby</button><div><small>{currentGame.tag}</small><h1>{currentGame.name}</h1></div><strong>{fmt(balance)}</strong></div>
+      <section className="premium-cabinet">
+        <div className="cabinet-top"><div><small>MODO</small><b>{freeSpins>0?`GIROS GRÁTIS ${freeSpins}`:'JOGO BASE'}</b></div><div className="meter"><small>MEDIDOR BÔNUS 10X</small><div>{[0,1,2,3].map(i=><span key={i} className={i<bonus?'on':''}></span>)}</div></div></div>
+        <div className={`reel-window ${spinning?'spinning':''}`}>{grid.map((s,i)=><div className={`symbol symbol-${s}`} key={`${i}-${s}`}><i></i><span>{s.toUpperCase()}</span></div>)}</div>
+        <div className="payline"></div>
+        <div className="slot-controls"><label>Aposta<select value={bet} onChange={e=>setBet(Number(e.target.value))}>{BETS.map(v=><option key={v} value={v}>{fmt(v)}</option>)}</select></label><button className="spin-button" onClick={spin} disabled={spinning}><span>{spinning?'':'GIRAR'}</span></button><div><small>Saldo</small><strong>{fmt(balance)}</strong></div></div>
+        <p>3+ símbolos iguais pagam. Símbolos especiais carregam o bônus. Medidor completo paga 10x.</p>
+      </section>
+    </main>}
 
-  return (
-    <div className="casino-app">
-      <header className="casino-header">
-        <button className="casino-logo" onClick={() => setScreen('lobby')}><span>🐯</span><b>NEKU</b><small>SOCIAL CASINO</small></button>
-        <nav className="casino-nav">
-          <button className={screen === 'lobby' ? 'active' : ''} onClick={() => setScreen('lobby')}>Lobby</button>
-          <button onClick={() => setScreen('history')}>Histórico</button>
-          <button onClick={() => setScreen('vip')}>VIP</button>
-        </nav>
-        <div className="casino-wallet"><small>Saldo demo</small><strong>🪙 {fmt(balance)}</strong></div>
-      </header>
+    {screen==='crash'&&<main className="crash-page-v4">
+      <div className="game-head"><button onClick={()=>setScreen('lobby')}>← Lobby</button><div><small>RODADAS CONTÍNUAS</small><h1>Neku Crash</h1></div><strong>{fmt(balance)}</strong></div>
+      <div className="recent-strip">{recent.map((v,i)=><span key={i} className={v<2?'low':v>=5?'high':''}>{v.toFixed(2)}x</span>)}</div>
+      <section className="crash-v4-layout">
+        <div className={`crash-board ${crashPhase}`}>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none"><defs><linearGradient id="v4area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f6b93b" stopOpacity=".55"/><stop offset="1" stopColor="#e74c3c" stopOpacity="0"/></linearGradient></defs><path className="grid-lines" d="M0 20H100M0 40H100M0 60H100M0 80H100M20 0V100M40 0V100M60 0V100M80 0V100"/><path className="area" d={`${d} L ${lp.x} 100 L 2 100 Z`}/><path className="curve" d={d}/></svg>
+          {crashPhase==='waiting'&&<div className="waiting"><small>PRÓXIMA RODADA</small><strong>{countdown}</strong><span>{queuedBet?'APOSTA CONFIRMADA':'FAÇA SUA APOSTA'}</span></div>}
+          {crashPhase==='flying'&&<><div className="live-mult">{multiplier.toFixed(2)}x</div><div className="rocket-shape" style={{left:`${lp.x}%`,top:`${lp.y}%`}}></div></>}
+          {crashPhase==='crashed'&&<div className="crashed-pop"><b>CRASH</b><strong>{multiplier.toFixed(2)}x</strong></div>}
+          {cashResult&&<div className="cash-banner"><small>VOCÊ SACOU EM {cashResult.mult.toFixed(2)}x</small><strong>GANHOU {fmt(cashResult.payout)}</strong></div>}
+        </div>
+        <aside className="crash-side"><small>APOSTA DA PRÓXIMA RODADA</small><strong>{fmt(bet)}</strong><div className="bet-chips">{BETS.map(v=><button key={v} onClick={()=>setBet(v)}>{fmt(v)}</button>)}</div>{crashPhase==='waiting'?<button className="join-btn" onClick={queueCrashBet} disabled={queuedBet}>{queuedBet?'AGUARDANDO INÍCIO':'ENTRAR NA PRÓXIMA RODADA'}</button>:<button className="join-btn muted">AGUARDE A PRÓXIMA</button>}{crashPhase==='flying'&&activeBet>0&&!cashed&&<button className="cash-btn" onPointerDown={cashOut}>SACAR AGORA<br/><strong>{fmt(activeBet*multiplier)}</strong></button>}</aside>
+      </section>
+    </main>}
 
-      {screen === 'lobby' && <main className="casino-main">
-        <section className="casino-hero"><div><span>✨ NOVA EXPERIÊNCIA NEKU</span><h1>Seu cassino social premium</h1><p>Cinco jogos demonstrativos com animações, bônus e moedas virtuais.</p><button onClick={() => openGame('tiger')}>Jogar destaque</button></div><div className="hero-tiger">🐯</div></section>
-        <div className="section-title"><div><span>Jogos em destaque</span><h2>Escolha sua sorte</h2></div><small>Somente entretenimento virtual</small></div>
-        <section className="casino-grid">{games.map((game) => <button className={`casino-card game-${game.id}`} key={game.id} onClick={() => openGame(game.id)}><span className="card-tag">{game.tag}</span><div className="card-art">{game.icon}</div><div className="card-info"><h3>{game.name}</h3><p>{game.desc}</p><span>JOGAR AGORA →</span></div></button>)}</section>
-        <section className="casino-stats"><div><b>{history.length}</b><span>rodadas</span></div><div><b>{fmt(totalPlayed)}</b><span>moedas jogadas</span></div><div><b>5</b><span>jogos ativos</span></div></section>
-      </main>}
+    {screen==='history'&&<main className="history-v4"><div className="game-head"><button onClick={()=>setScreen('lobby')}>← Lobby</button><div><small>CONTA DEMO</small><h1>Histórico</h1></div><strong>{fmt(balance)}</strong></div>{history.length===0?<p>Nenhuma rodada ainda.</p>:<div className="history-list">{history.map(h=><div key={h.id}><span>{h.time}</span><b>{h.game}</b><small>{h.detail}</small><em>{h.payout?`+ ${fmt(h.payout)}`:`- ${fmt(h.wager)}`}</em></div>)}</div>}</main>}
 
-      {configs[screen] && <main className={`game-screen theme-${screen}`}>
-        <div className="game-toolbar"><button onClick={() => setScreen('lobby')}>← Lobby</button><div><span>{currentGame.icon}</span><h1>{currentGame.name}</h1></div><div className="mini-wallet">🪙 {fmt(balance)}</div></div>
-        <section className="slot-shell">
-          <div className="slot-top"><div><small>MODO</small><strong>{freeSpins > 0 ? `GIROS GRÁTIS ${freeSpins}` : 'JOGO BASE'}</strong></div><div className="bonus-meter"><small>MEDIDOR DE BÔNUS</small><div>{Array.from({ length: screen === 'dragon' ? 6 : screen === 'vault' ? 3 : screen === 'jungle' ? 4 : 5 }, (_, i) => <span className={i < (bonus[screen] || 0) ? 'lit' : ''} key={i}>◆</span>)}</div></div></div>
-          <div className={`reel-grid cols-${configs[screen].cols} ${spinning ? 'spinning' : ''}`}>{grid.map((symbol, i) => <div className="slot-symbol" style={{ animationDelay: `${(i % configs[screen].cols) * 45}ms` }} key={`${i}-${symbol}-${spinning}`}>{symbol}</div>)}</div>
-          <div className="slot-controls"><div className="bet-step"><button onClick={() => setBet(BETS[Math.max(0, BETS.indexOf(bet)-1)])}>−</button><div><small>APOSTA</small><b>🪙 {fmt(bet)}</b></div><button onClick={() => setBet(BETS[Math.min(BETS.length-1, BETS.indexOf(bet)+1)])}>+</button></div><button className="spin-button" onClick={spin} disabled={spinning}><span>{spinning ? 'GIRANDO' : 'GIRAR'}</span><small>{freeSpins > 0 ? 'GRÁTIS' : `${fmt(bet)} moedas`}</small></button><button className="info-button" onClick={() => showWin('COMO JOGAR', 0, currentGame.desc, 'info')}>?</button></div>
-        </section>
-        <p className="demo-note">Demo com moedas virtuais. Sem depósito, saque ou conversão em dinheiro.</p>
-      </main>}
+    {walletOpen&&<div className="wallet-modal" onClick={()=>setWalletOpen(false)}><div onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setWalletOpen(false)}>×</button><small>SALDO DE BRINCADEIRA</small><h2>Escolha quanto quer usar</h2><p>Esse valor é apenas demonstrativo e não representa dinheiro real.</p><div>{MONEY_OPTIONS.map(v=><button key={v} onClick={()=>addFunds(v)}>{fmt(v)}</button>)}</div></div></div>}
 
-      {screen === 'crash' && <main className="game-screen crash-screen">
-        <div className="game-toolbar"><button onClick={() => setScreen('lobby')}>← Lobby</button><div><span>🚀</span><h1>Neku Crash</h1></div><div className="mini-wallet">🪙 {fmt(balance)}</div></div>
-        <section className={`crash-box ${crashState}`}>
-          <div className="crash-status"><span>✓ RNG DEMONSTRATIVO</span><b>{crashState === 'flying' ? '● AO VIVO' : crashState === 'crashed' ? '● CRASH' : '● PRONTO'}</b></div>
-          <div className="crash-chart"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><defs><linearGradient id="crashFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffbe38" stopOpacity=".65"/><stop offset="1" stopColor="#ff4000" stopOpacity="0"/></linearGradient></defs><path className="chart-grid" d="M0 20H100M0 40H100M0 60H100M0 80H100M20 0V100M40 0V100M60 0V100M80 0V100"/><path className="chart-area" d={`${crashD} L ${lastCrashPoint.x} 100 L 2 100 Z`}/><path className="chart-line" d={crashD}/></svg><div className="crash-multi">{multiplier.toFixed(2)}x</div><div className="rocket" style={crashState === 'flying' ? {left:`${lastCrashPoint.x}%`,top:`${lastCrashPoint.y}%`} : undefined}>{crashState === 'crashed' ? '💥' : '🚀'}</div>{crashState === 'crashed' && <div className="crash-word">CRASH!</div>}{cashout && <div className="cashout-toast"><b>VOCÊ SACOU!</b><span>{cashout.mult.toFixed(2)}x · 🪙 {fmt(cashout.payout)}</span></div>}</div>
-          <div className="crash-controls-new"><div className="bet-step"><button onClick={() => setBet(BETS[Math.max(0, BETS.indexOf(bet)-1)])}>−</button><div><small>APOSTA</small><b>🪙 {fmt(bet)}</b></div><button onClick={() => setBet(BETS[Math.min(BETS.length-1, BETS.indexOf(bet)+1)])}>+</button></div><button className="cash-button" onPointerDown={cashOutCrash} disabled={crashState !== 'flying' || cashed.current}>SACAR AGORA<small>{crashState === 'flying' ? `🪙 ${fmt(Math.floor(bet * multiplier))}` : 'aguardando'}</small></button><button className="launch-button" onClick={startCrash} disabled={crashState === 'flying'}>{crashState === 'flying' ? 'EM VOO' : 'APOSTAR'}</button></div>
-        </section>
-      </main>}
-
-      {screen === 'history' && <main className="simple-page"><button onClick={() => setScreen('lobby')}>← Voltar</button><h1>Histórico da sessão</h1>{history.length === 0 ? <p>Nenhuma rodada ainda.</p> : <div className="history-list">{history.map((item) => <div key={item.id}><span>{item.time}</span><b>{item.game}</b><small>{item.detail}</small><em className={item.payout ? 'positive' : ''}>{item.payout ? `+${fmt(item.payout)}` : `-${fmt(item.bet)}`}</em></div>)}</div>}</main>}
-      {screen === 'vip' && <main className="simple-page"><button onClick={() => setScreen('lobby')}>← Voltar</button><h1>Clube VIP Neku</h1><div className="vip-card-demo"><span>👑</span><h2>Founder Demo</h2><p>Área demonstrativa de níveis, missões e recompensas virtuais.</p><button onClick={() => setBalance(START_BALANCE)}>Recarregar 100.000 moedas</button></div></main>}
-
-      {vaultMode && <div className="vault-overlay"><div><span>💎</span><h2>ESCOLHA UM COFRE</h2><p>Cada cofre possui um multiplicador surpresa.</p><div className="vault-grid">{Array.from({length:6},(_,i)=><button className={vaultPicks.includes(i)?'opened':''} onClick={() => pickVault(i)} key={i}>{vaultPicks.includes(i)?'✨':'🔒'}</button>)}</div></div></div>}
-
-      {win && <div className={`win-overlay ${win.level}`} onClick={() => setWin(null)}><div className="win-pop"><button onClick={() => setWin(null)}>×</button><div className="coin-rain">🪙 ✨ 🪙 ✨ 🪙</div><span className="win-icon">{win.level === 'lose' ? '😿' : win.level === 'info' ? 'ℹ️' : '🐯'}</span><h2>{win.title}</h2>{win.amount > 0 && <strong>🪙 {fmt(win.amount)}</strong>}<p>{win.subtitle}</p><small>Toque para continuar</small></div></div>}
-    </div>
-  );
+    {win&&<div className="win-modal" onClick={()=>setWin(null)}><div><small>{win.detail}</small><h2>{win.title}</h2><strong>{fmt(win.amount)}</strong><button>CONTINUAR</button></div></div>}
+  </div>
 }
