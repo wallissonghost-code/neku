@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-const symbols = ['🍒', '💎', '7️⃣', '⭐', '🔔'];
+const symbols = ['🐯', '👑', '🏆', '🧧', '🪙', '💎'];
 const rouletteNumbers = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27];
 
 function randomItem(items) {
@@ -11,7 +11,7 @@ export default function App() {
   const [tab, setTab] = useState('lobby');
   const [balance, setBalance] = useState(2500);
   const [bet, setBet] = useState(50);
-  const [reels, setReels] = useState(['7️⃣', '💎', '🍒']);
+  const [reels, setReels] = useState(['👑', '🐯', '💎', '🏆', '🪙']);
   const [rouletteResult, setRouletteResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [message, setMessage] = useState('Bem-vindo ao Neku. Você recebeu 2.500 moedas virtuais.');
@@ -49,15 +49,30 @@ export default function App() {
 
   const spinSlots = () => {
     if (!canPlay()) return;
-    const next = [randomItem(symbols), randomItem(symbols), randomItem(symbols)];
+
+    const next = Array.from({ length: 5 }, () => randomItem(symbols));
+    const counts = next.reduce((accumulator, symbol) => {
+      accumulator[symbol] = (accumulator[symbol] || 0) + 1;
+      return accumulator;
+    }, {});
+    const highestMatch = Math.max(...Object.values(counts));
+    const winningSymbol = Object.keys(counts).find((symbol) => counts[symbol] === highestMatch);
+
     let multiplier = 0;
-    if (next[0] === next[1] && next[1] === next[2]) multiplier = next[0] === '7️⃣' ? 12 : 6;
-    else if (next[0] === next[1] || next[1] === next[2] || next[0] === next[2]) multiplier = 2;
+    if (highestMatch === 5) multiplier = winningSymbol === '🐯' ? 50 : 30;
+    else if (highestMatch === 4) multiplier = 12;
+    else if (highestMatch === 3) multiplier = 5;
+    else if (highestMatch === 2) multiplier = 2;
+
     const payout = bet * multiplier;
     setReels(next);
     setBalance((value) => value - bet + payout);
-    setMessage(payout ? `Você ganhou ${payout.toLocaleString('pt-BR')} moedas!` : 'Não foi dessa vez. Tente novamente com responsabilidade.');
-    addHistory('Neku Slots', bet, payout, next.join(' '));
+    setMessage(
+      payout
+        ? `${winningSymbol} combinação premium! Você ganhou ${payout.toLocaleString('pt-BR')} moedas.`
+        : 'Não foi dessa vez. Tente novamente com responsabilidade.'
+    );
+    addHistory('Neku Golden Reels', bet, payout, next.join(' '));
   };
 
   const playRoulette = (choice) => {
@@ -113,7 +128,7 @@ export default function App() {
 
         {tab === 'lobby' && (
           <section className="grid">
-            <article className="game-card featured" onClick={() => setTab('slots')}><span>🎰</span><h2>Neku Slots</h2><p>Combine símbolos e alcance multiplicadores virtuais.</p><button>Jogar agora</button></article>
+            <article className="game-card featured" onClick={() => setTab('slots')}><span>🎰</span><h2>Neku Golden Reels</h2><p>Cinco colunas premium com símbolos dourados e multiplicadores especiais.</p><button>Jogar agora</button></article>
             <article className="game-card" onClick={() => setTab('roleta')}><span>🎡</span><h2>Roleta Neon</h2><p>Escolha uma cor e acompanhe o resultado da rodada.</p><button>Abrir roleta</button></article>
             <article className="bonus-card"><span>🎁</span><h2>Bônus diário</h2><p>Receba 500 moedas virtuais para continuar testando.</p><button onClick={claimDaily} disabled={dailyClaimed}>{dailyClaimed ? 'Resgatado hoje' : 'Resgatar bônus'}</button></article>
             <article className="stats-card"><span>📊</span><h2>Sua sessão</h2><div><b>{history.length}</b><small>rodadas</small></div><div><b>{totalPlayed.toLocaleString('pt-BR')}</b><small>moedas jogadas</small></div></article>
@@ -121,11 +136,12 @@ export default function App() {
         )}
 
         {tab === 'slots' && (
-          <section className="game-panel">
-            <div className="game-heading"><div><span className="eyebrow">CAÇA-NÍQUEL DEMO</span><h2>Neku Slots</h2></div><BetControl bet={bet} setBet={setBet} /></div>
-            <div className="slot-machine">{reels.map((symbol, index) => <div className="reel" key={index}>{symbol}</div>)}</div>
+          <section className="game-panel premium-slots">
+            <div className="game-heading"><div><span className="eyebrow">CINCO ROLOS PREMIUM</span><h2>Neku Golden Reels</h2></div><BetControl bet={bet} setBet={setBet} /></div>
+            <div className="slot-crown">✦ JACKPOT ROYAL ✦</div>
+            <div className="slot-machine">{reels.map((symbol, index) => <div className="reel" key={`${symbol}-${index}`}><span>{symbol}</span></div>)}</div>
             <button className="primary" onClick={spinSlots}>Girar por {bet} moedas</button>
-            <p className="rules">3 símbolos iguais: 6x · três 7: 12x · dois iguais: 2x.</p>
+            <p className="rules">5 tigres: 50x · 5 iguais: 30x · 4 iguais: 12x · 3 iguais: 5x · 2 iguais: 2x.</p>
           </section>
         )}
 
