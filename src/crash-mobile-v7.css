@@ -1,211 +1,67 @@
-/* Mobile Crash v7 — gráfico e saque visíveis ao mesmo tempo */
-@media (max-width: 700px) {
-  .crash-v6 {
-    width: 100%;
-    padding: 8px 10px 190px;
+/* Mobile Crash — gráfico + duas mãos visíveis na mesma tela */
+@media (max-width:700px){
+  .neku-v6:has(.crash-v6) .v6-header{
+    position:sticky;top:0;z-index:30;
+    grid-template-columns:auto 1fr;
+    gap:8px;padding:8px 10px;
+    min-height:62px;
   }
+  .neku-v6:has(.crash-v6) .brand>span{width:38px;height:38px;font-size:18px}
+  .neku-v6:has(.crash-v6) .brand b{font-size:18px;letter-spacing:3px}
+  .neku-v6:has(.crash-v6) .brand small{font-size:6px}
+  .neku-v6:has(.crash-v6) .v6-header nav{display:none}
+  .neku-v6:has(.crash-v6) .wallet{justify-self:end;padding:6px 7px 6px 10px;border-radius:13px;font-size:13px}
+  .neku-v6:has(.crash-v6) .wallet i{width:30px;height:30px;font-size:21px}
 
-  .crash-v6 .page-title {
-    grid-template-columns: auto 1fr;
-    gap: 10px;
-    margin-bottom: 8px;
-  }
+  .crash-v6{width:100%;padding:6px 8px 30px}
+  .crash-v6 .page-title{display:none}
+  .crash-v6 .recent{height:34px;margin:0 0 5px;gap:5px;overflow-x:auto;white-space:nowrap}
+  .crash-v6 .recent span{padding:5px 9px;font-size:11px}
 
-  .crash-v6 .page-title > strong {
-    display: none;
-  }
+  .crash-stage{position:relative;z-index:10;margin:0 0 7px;padding:0;background:#06070a}
+  .board{height:238px;border-radius:16px;box-shadow:0 8px 25px #000b,inset 0 0 24px #0008}
+  .waiting strong{font-size:58px;line-height:1}
+  .waiting small{font-size:8px}
+  .waiting span{font-size:12px}
+  .mult{top:28%;font-size:clamp(42px,15vw,68px)}
+  .rocket{width:36px;height:57px}
+  .rocket .body{inset:11px 6px 8px}
+  .rocket .flame{left:14px;bottom:-14px;width:10px;height:24px}
+  .tiger{left:8px;top:4px;width:21px;height:21px}
+  .bonus-burst{top:66%;padding:8px 12px;font-size:22px}
+  .crashed b{font-size:54px}.crashed strong{font-size:25px}
 
-  .crash-v6 .page-title h1 {
-    font-size: 24px;
-  }
+  .hands-compact{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:0}
+  .hands-compact article{min-width:0;padding:8px;border-radius:13px}
+  .hands-compact header{align-items:center;gap:4px;margin-bottom:5px}
+  .hands-compact header b{font-size:13px}
+  .hands-compact header span{font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hand-main{display:block;margin:4px 0 6px}
+  .hand-main>strong{display:block;margin-bottom:5px;font-size:17px;white-space:nowrap}
+  .bet-row{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;overflow:visible}
+  .bet-row button{min-width:0;padding:5px 2px;font-size:10px;border-radius:7px}
+  .auto-row{display:grid;grid-template-columns:1fr auto;gap:4px;margin-bottom:6px;padding:5px 6px;border-radius:8px}
+  .auto-row label{display:flex;align-items:center;gap:3px;font-size:9px;white-space:nowrap}
+  .auto-row input{width:13px;height:13px;margin:0}
+  .auto-row select{max-width:62px;padding:4px 3px;font-size:10px;border-radius:6px}
+  .hands-compact .primary,.hands-compact .cash{width:100%;min-height:44px;padding:7px 4px;border-radius:9px;font-size:11px;line-height:1.05}
+  .hands-compact .cash{background:linear-gradient(#45d95b,#168b2d);border:1px solid #8cff9d;box-shadow:0 5px 14px #0b4b26aa}
+  .hands-compact .cash small{display:block;margin-top:3px;font-size:10px}
+  .hands-compact article.queued .primary{background:linear-gradient(#ffb52f,#cf7210);color:#211000}
+  .bonus-info{display:none}
 
-  .crash-v6 .recent {
-    margin: 0 0 7px;
-    padding-bottom: 2px;
-  }
-
-  .crash-stage {
-    position: sticky;
-    top: 6px;
-    z-index: 14;
-    margin: 0 -2px 8px;
-    padding: 0;
-    background: #06070a;
-    box-shadow: 0 12px 24px #000c;
-  }
-
-  .board {
-    height: 255px;
-    border-radius: 17px;
-    box-shadow: 0 8px 30px #000b, inset 0 0 30px #0008;
-  }
-
-  .waiting strong {
-    font-size: 62px;
-    line-height: 1;
-  }
-
-  .waiting small {
-    font-size: 9px;
-  }
-
-  .waiting span {
-    font-size: 13px;
-  }
-
-  .mult {
-    top: 28%;
-    font-size: clamp(44px, 15vw, 70px);
-  }
-
-  .rocket {
-    width: 38px;
-    height: 60px;
-  }
-
-  .rocket .body {
-    inset: 12px 6px 8px;
-  }
-
-  .rocket .flame {
-    left: 15px;
-    bottom: -14px;
-    width: 10px;
-    height: 25px;
-  }
-
-  .tiger {
-    left: 9px;
-    top: 4px;
-    width: 22px;
-    height: 22px;
-  }
-
-  .bonus-burst {
-    top: 64%;
-    padding: 9px 13px;
-    font-size: 24px;
-  }
-
-  .crashed b {
-    font-size: 58px;
-  }
-
-  .crashed strong {
-    font-size: 27px;
-  }
-
-  .hands-compact {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 9px;
-    margin-top: 6px;
-  }
-
-  .hands-compact article {
-    padding: 11px;
-    border-radius: 15px;
-  }
-
-  .hands-compact header {
-    align-items: center;
-  }
-
-  .hands-compact header b {
-    font-size: 16px;
-  }
-
-  .hands-compact header span {
-    font-size: 9px;
-  }
-
-  .hand-main {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 9px;
-    margin: 8px 0;
-  }
-
-  .hand-main > strong {
-    font-size: 20px;
-    white-space: nowrap;
-  }
-
-  .bet-row {
-    gap: 4px;
-  }
-
-  .bet-row button {
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-
-  .auto-row {
-    margin-bottom: 7px;
-    padding: 7px 8px;
-  }
-
-  .auto-row label {
-    font-size: 11px;
-  }
-
-  .auto-row select {
-    padding: 5px 6px;
-    font-size: 12px;
-  }
-
-  .hands-compact .primary,
-  .hands-compact .cash {
-    min-height: 44px;
-    font-size: 14px;
-    border-radius: 11px;
-  }
-
-  .hands-compact .cash {
-    position: relative;
-    z-index: 16;
-    box-shadow: 0 7px 18px #0a4b22aa;
-  }
-
-  .bonus-info {
-    font-size: 10px;
-    margin-top: 8px;
-  }
-
-  /* Durante o voo, deixa as duas ações disponíveis em uma faixa fixa. */
-  .board.flying ~ * + .hands-compact,
-  .crash-v6:has(.board.flying) .hands-compact {
-    padding-bottom: 100px;
-  }
-
-  .crash-v6:has(.board.flying) .hands-compact article.active .cash {
-    position: fixed;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    width: calc(50vw - 16px);
-    min-height: 68px;
-    border: 2px solid #8bff9b;
-    font-size: 13px;
-    box-shadow: 0 12px 35px #000d, 0 0 22px #25bc4c55;
-  }
-
-  .crash-v6:has(.board.flying) .hands-compact article:first-child.active .cash {
-    left: 10px;
-  }
-
-  .crash-v6:has(.board.flying) .hands-compact article:nth-child(2).active .cash {
-    right: 10px;
-  }
-
-  .crash-v6:has(.board.flying) .hands-compact article.active .cash small {
-    margin-top: 3px;
-    font-size: 12px;
-  }
+  /* Durante o voo, mantém os dois saques presos abaixo do gráfico. */
+  .crash-v6:has(.board.flying) .crash-stage{position:sticky;top:66px;z-index:25}
+  .crash-v6:has(.board.flying) .hands-compact{position:sticky;top:311px;z-index:24;background:#06070a;padding:5px 0 8px;box-shadow:0 12px 24px #000c}
+  .crash-v6:has(.board.flying) .hands-compact article{background:#0d1015}
+  .crash-v6:has(.board.flying) .hands-compact article:not(.active){opacity:.7}
 }
 
-@media (max-width: 390px) {
-  .board { height: 235px; }
-  .crash-v6:has(.board.flying) .hands-compact article.active .cash {
-    width: calc(50vw - 13px);
-    min-height: 62px;
-  }
+@media (max-width:390px){
+  .board{height:220px}
+  .crash-v6:has(.board.flying) .hands-compact{top:293px}
+  .hands-compact article{padding:7px}
+  .hand-main>strong{font-size:15px}
+  .bet-row button{font-size:9px}
+  .hands-compact .primary,.hands-compact .cash{min-height:42px;font-size:10px}
 }
