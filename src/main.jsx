@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
-import './casino-v4.css';
+import './neku-v4.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
