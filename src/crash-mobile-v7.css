@@ -1,0 +1,211 @@
+/* Mobile Crash v7 — gráfico e saque visíveis ao mesmo tempo */
+@media (max-width: 700px) {
+  .crash-v6 {
+    width: 100%;
+    padding: 8px 10px 190px;
+  }
+
+  .crash-v6 .page-title {
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .crash-v6 .page-title > strong {
+    display: none;
+  }
+
+  .crash-v6 .page-title h1 {
+    font-size: 24px;
+  }
+
+  .crash-v6 .recent {
+    margin: 0 0 7px;
+    padding-bottom: 2px;
+  }
+
+  .crash-stage {
+    position: sticky;
+    top: 6px;
+    z-index: 14;
+    margin: 0 -2px 8px;
+    padding: 0;
+    background: #06070a;
+    box-shadow: 0 12px 24px #000c;
+  }
+
+  .board {
+    height: 255px;
+    border-radius: 17px;
+    box-shadow: 0 8px 30px #000b, inset 0 0 30px #0008;
+  }
+
+  .waiting strong {
+    font-size: 62px;
+    line-height: 1;
+  }
+
+  .waiting small {
+    font-size: 9px;
+  }
+
+  .waiting span {
+    font-size: 13px;
+  }
+
+  .mult {
+    top: 28%;
+    font-size: clamp(44px, 15vw, 70px);
+  }
+
+  .rocket {
+    width: 38px;
+    height: 60px;
+  }
+
+  .rocket .body {
+    inset: 12px 6px 8px;
+  }
+
+  .rocket .flame {
+    left: 15px;
+    bottom: -14px;
+    width: 10px;
+    height: 25px;
+  }
+
+  .tiger {
+    left: 9px;
+    top: 4px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .bonus-burst {
+    top: 64%;
+    padding: 9px 13px;
+    font-size: 24px;
+  }
+
+  .crashed b {
+    font-size: 58px;
+  }
+
+  .crashed strong {
+    font-size: 27px;
+  }
+
+  .hands-compact {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 9px;
+    margin-top: 6px;
+  }
+
+  .hands-compact article {
+    padding: 11px;
+    border-radius: 15px;
+  }
+
+  .hands-compact header {
+    align-items: center;
+  }
+
+  .hands-compact header b {
+    font-size: 16px;
+  }
+
+  .hands-compact header span {
+    font-size: 9px;
+  }
+
+  .hand-main {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 9px;
+    margin: 8px 0;
+  }
+
+  .hand-main > strong {
+    font-size: 20px;
+    white-space: nowrap;
+  }
+
+  .bet-row {
+    gap: 4px;
+  }
+
+  .bet-row button {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .auto-row {
+    margin-bottom: 7px;
+    padding: 7px 8px;
+  }
+
+  .auto-row label {
+    font-size: 11px;
+  }
+
+  .auto-row select {
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+
+  .hands-compact .primary,
+  .hands-compact .cash {
+    min-height: 44px;
+    font-size: 14px;
+    border-radius: 11px;
+  }
+
+  .hands-compact .cash {
+    position: relative;
+    z-index: 16;
+    box-shadow: 0 7px 18px #0a4b22aa;
+  }
+
+  .bonus-info {
+    font-size: 10px;
+    margin-top: 8px;
+  }
+
+  /* Durante o voo, deixa as duas ações disponíveis em uma faixa fixa. */
+  .board.flying ~ * + .hands-compact,
+  .crash-v6:has(.board.flying) .hands-compact {
+    padding-bottom: 100px;
+  }
+
+  .crash-v6:has(.board.flying) .hands-compact article.active .cash {
+    position: fixed;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: calc(50vw - 16px);
+    min-height: 68px;
+    border: 2px solid #8bff9b;
+    font-size: 13px;
+    box-shadow: 0 12px 35px #000d, 0 0 22px #25bc4c55;
+  }
+
+  .crash-v6:has(.board.flying) .hands-compact article:first-child.active .cash {
+    left: 10px;
+  }
+
+  .crash-v6:has(.board.flying) .hands-compact article:nth-child(2).active .cash {
+    right: 10px;
+  }
+
+  .crash-v6:has(.board.flying) .hands-compact article.active .cash small {
+    margin-top: 3px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 390px) {
+  .board { height: 235px; }
+  .crash-v6:has(.board.flying) .hands-compact article.active .cash {
+    width: calc(50vw - 13px);
+    min-height: 62px;
+  }
+}
